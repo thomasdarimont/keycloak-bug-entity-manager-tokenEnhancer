@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Using the following to load postgres-->
+<!--https://stackoverflow.com/questions/35582579/is-it-possible-to-use-a-datasource-deployment-descriptor-with-a-driver-module-in-->
+<jboss-deployment-structure>
+    <deployment>
+        <module-alias name="deployment.token-enhancer"/>
+        <dependencies>
+            <module name="org.hibernate"/>
+            <module name="org.keycloak.keycloak-services"/>
+        </dependencies>
+    </deployment>
+</jboss-deployment-structure>

@@ -5,14 +5,17 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ProtocolMapperModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
-import org.keycloak.protocol.oidc.mappers.*;
+import org.keycloak.protocol.oidc.mappers.AbstractOIDCProtocolMapper;
+import org.keycloak.protocol.oidc.mappers.OIDCAccessTokenMapper;
+import org.keycloak.protocol.oidc.mappers.OIDCAttributeMapperHelper;
+import org.keycloak.protocol.oidc.mappers.OIDCIDTokenMapper;
+import org.keycloak.protocol.oidc.mappers.UserInfoTokenMapper;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessToken;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import javax.persistence.PersistenceContext;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,35 +27,27 @@ public class KeycloakTokenEnhancer extends AbstractOIDCProtocolMapper implements
 
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
 
-    @PersistenceContext(unitName = "UserPU")
-    protected EntityManager entityManager;
-
     static {
         OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, KeycloakTokenEnhancer.class);
     }
 
+    private UserRepository getUserRepository() {
+        try {
+            String moduleName = new File(getClass().getProtectionDomain().getCodeSource().getLocation().getFile()).getName().replaceAll("\\.jar$", "");
+            String jndiName = String.format("java:global/%s/%s", moduleName, UserRepository.class.getSimpleName());
+            return (UserRepository) new InitialContext().lookup(jndiName);
+        } catch (NamingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public AccessToken transformAccessToken(AccessToken accessToken, ProtocolMapperModel protocolMapperModel, KeycloakSession keycloakSession, UserSessionModel userSessionModel, ClientSessionContext clientSessionContext) {
+
         System.out.println("++++++++++++++++++++++++++++++++");
-
-        if (entityManager == null ) {
-            System.out.println("entityManager is null ");
-        }
-
-
-        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("UserPU");
-
-        if (entityManagerFactory == null ) {
-            System.out.println("entityManagerFactory is null ");
-        }
-        else {
-            EntityManager entityManager2 = entityManagerFactory.createEntityManager();
-            if (entityManager2 == null) {
-                System.out.println("entityManager2 is null ");
-            }
-        }
-
-
+        UserRepository userRepository = getUserRepository();
+        Object data = userRepository.getData();
+        System.out.println("data: " + data);
         System.out.println("++++++++++++++++++++++++++++++++");
 
         accessToken.getOtherClaims().put("fruit", "pear, apple, tangerine");
@@ -89,10 +84,16 @@ public class KeycloakTokenEnhancer extends AbstractOIDCProtocolMapper implements
         mapper.setName(name);
         mapper.setProtocolMapper(PROVIDER_ID);
         mapper.setProtocol(OIDCLoginProtocol.LOGIN_PROTOCOL);
-        Map<String, String> config = new HashMap<String, String>();
-        if (accessToken) config.put(OIDCAttributeMapperHelper.INCLUDE_IN_ACCESS_TOKEN, "true");
-        if (idToken) config.put(OIDCAttributeMapperHelper.INCLUDE_IN_ID_TOKEN, "true");
-        if (userInfo) config.put(OIDCAttributeMapperHelper.INCLUDE_IN_USERINFO, "true");
+        Map<String, String> config = new HashMap<>();
+        if (accessToken) {
+            config.put(OIDCAttributeMapperHelper.INCLUDE_IN_ACCESS_TOKEN, "true");
+        }
+        if (idToken) {
+            config.put(OIDCAttributeMapperHelper.INCLUDE_IN_ID_TOKEN, "true");
+        }
+        if (userInfo) {
+            config.put(OIDCAttributeMapperHelper.INCLUDE_IN_USERINFO, "true");
+        }
         mapper.setConfig(config);
 
         return mapper;
